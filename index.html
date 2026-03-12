@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knox Grammar WGS 2026 — Live Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#020510;--surface:#080f1e;--surface2:#0d1628;--surface3:#111d35;
+  --border:rgba(255,255,255,0.07);
+  --gold:#FFD700;--blue:#3b82f6;--blue2:#60a5fa;--cyan:#22d3ee;
+  --purple:#a855f7;--pink:#ec4899;--green:#10b981;--red:#f43f5e;--orange:#f97316;
+  --white:#fff;--muted:#4b5563;--muted2:#6b7280;
+  --font:'Space Grotesk',sans-serif;--mono:'Space Mono',monospace;
+}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--white);
+  display:flex;
+  flex-direction:column;
+}
+
+/* ── BACKGROUND ── */
+.bg-layer{position:fixed;inset:0;z-index:0;pointer-events:none}
+.bg-layer::before{content:'';position:absolute;inset:0;background:
+  radial-gradient(ellipse 60% 60% at 15% 15%,rgba(59,130,246,.18) 0%,transparent 65%),
+  radial-gradient(ellipse 50% 70% at 85% 85%,rgba(168,85,247,.1) 0%,transparent 60%),
+  radial-gradient(ellipse 40% 40% at 55% 25%,rgba(34,211,238,.07) 0%,transparent 55%),
+  linear-gradient(160deg,#020510 0%,#040d1f 50%,#060a18 100%)}
+.scanline{position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(transparent,rgba(34,211,238,.05),transparent);animation:scan 12s linear infinite;pointer-events:none;z-index:1}
+@keyframes scan{0%{transform:translateY(-10px)}100%{transform:translateY(100vh)}}
+.noise{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.15;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E")}
+
+/* ── LAYOUT ── */
+#app{position:relative;z-index:2;display:flex;flex-direction:column;height:100vh;padding:0}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 24px;
+  background:rgba(2,5,16,.95);
+  border-bottom:1px solid rgba(34,211,238,.2);
+  backdrop-filter:blur(20px);
+  flex-shrink:0;
+  position:relative;
+  overflow:hidden;
+}
+header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.5),transparent)}
+.h-brand{display:flex;align-items:center;gap:14px}
+.h-logo{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,var(--blue),var(--cyan));display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:700;color:#000;box-shadow:0 0 24px rgba(59,130,246,.4);flex-shrink:0}
+.h-title{font-size:17px;font-weight:700;line-height:1.1}
+.h-sub{font-size:10px;color:var(--cyan);text-transform:uppercase;letter-spacing:2.5px;font-weight:600;margin-top:2px}
+.h-right{display:flex;align-items:center;gap:20px}
+.live-chip{display:flex;align-items:center;gap:7px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);padding:6px 14px;border-radius:999px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse-dot 1.4s ease-in-out infinite;flex-shrink:0}
+@keyframes pulse-dot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,.5)}50%{opacity:.7;box-shadow:0 0 0 5px rgba(16,185,129,0)}}
+.live-label{font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1.5px;font-family:var(--mono)}
+.update-time{font-size:11px;color:var(--muted2);font-family:var(--mono)}
+.update-time span{color:var(--cyan)}
+.h-clock{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--white);letter-spacing:-1px;min-width:90px;text-align:right}
+.h-date{font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:2px;text-align:right;margin-top:1px;font-weight:700}
+.shave-badge{background:linear-gradient(135deg,rgba(255,215,0,.18),rgba(249,115,22,.1));border:1px solid rgba(255,215,0,.45);color:var(--gold);font-size:11px;font-weight:800;letter-spacing:1.5px;padding:6px 14px;border-radius:8px;text-transform:uppercase;font-family:var(--mono);animation:glow-badge 2s ease-in-out infinite}
+@keyframes glow-badge{0%,100%{box-shadow:0 0 12px rgba(255,215,0,.2)}50%{box-shadow:0 0 28px rgba(255,215,0,.5)}}
+
+/* ── MAIN ── */
+main{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0;
+  flex:1;
+  overflow:hidden;
+  min-height:0;
+}
+
+/* ── LEFT PANEL ── */
+.left-panel{
+  padding:20px 24px 20px 24px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  border-right:1px solid var(--border);
+  overflow:hidden;
+  min-height:0;
+}
+
+/* Amount display */
+.amount-block{
+  background:linear-gradient(135deg,rgba(34,211,238,.08),rgba(59,130,246,.05));
+  border:1px solid rgba(34,211,238,.2);
+  border-radius:20px;
+  padding:20px 24px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+  flex-shrink:0;
+}
+.amount-block::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 100%,rgba(34,211,238,.07),transparent)}
+.amt-eyebrow{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--cyan);margin-bottom:6px;font-weight:700}
+.amt-value{
+  font-family:var(--mono);
+  font-size:clamp(52px,7vw,88px);
+  font-weight:700;
+  line-height:.95;
+  letter-spacing:-3px;
+  background:linear-gradient(135deg,#fff 0%,var(--cyan) 40%,var(--blue2) 70%,var(--gold) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  transition:transform .3s;
+}
+.amt-value.pop{animation:amt-pop .5s ease}
+@keyframes amt-pop{0%{transform:scale(1)}30%{transform:scale(1.06)}100%{transform:scale(1)}}
+.amt-meta{font-size:12px;color:var(--muted2);margin-top:8px;display:flex;align-items:center;justify-content:center;gap:14px}
+.amt-meta strong{color:var(--white)}
+
+/* Progress */
+.progress-block{flex-shrink:0}
+.prog-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+.prog-label{font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:1.5px;font-weight:600}
+.prog-pct{font-family:var(--mono);font-size:14px;color:var(--cyan);font-weight:700}
+.prog-track{width:100%;height:10px;background:var(--surface2);border-radius:999px;position:relative;border:1px solid rgba(255,255,255,.05)}
+.prog-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--blue),var(--cyan),var(--green));transition:width 1.5s cubic-bezier(.4,0,.2,1);position:relative;box-shadow:0 0 16px rgba(34,211,238,.4)}
+.prog-fill::after{content:'';position:absolute;right:0;top:50%;transform:translate(50%,-50%);width:16px;height:16px;border-radius:50%;background:var(--cyan);box-shadow:0 0 20px rgba(34,211,238,1);border:2px solid rgba(2,5,16,.5)}
+.prog-sub{display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--muted)}
+.prog-sub span{color:var(--gold);font-family:var(--mono);font-weight:700}
+
+/* Stats grid */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex-shrink:0}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:2px 2px 0 0}
+.sc-cyan::after{background:linear-gradient(90deg,var(--cyan),transparent)}
+.sc-gold::after{background:linear-gradient(90deg,var(--gold),transparent)}
+.sc-green::after{background:linear-gradient(90deg,var(--green),transparent)}
+.sc-purple::after{background:linear-gradient(90deg,var(--purple),transparent)}
+.stat-val{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:-1px;line-height:1}
+.stat-lbl{font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;margin-top:5px;font-weight:600;line-height:1.3}
+
+/* Badges row */
+.badges-row{display:flex;gap:10px;flex-shrink:0}
+.badge{flex:1;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700}
+.badge-nsw{background:linear-gradient(135deg,rgba(255,215,0,.12),rgba(249,115,22,.06));border:1px solid rgba(255,215,0,.35)}
+.badge-nsw .badge-icon{font-size:22px}
+.badge-nsw .badge-text{color:var(--gold)}
+.badge-nsw .badge-sub{font-size:10px;color:var(--muted2);font-weight:400;display:block;margin-top:2px}
+.badge-record{background:linear-gradient(135deg,rgba(16,185,129,.1),rgba(16,185,129,.04));border:1px solid rgba(16,185,129,.3)}
+.badge-record .badge-icon{font-size:22px}
+.badge-record .badge-text{color:var(--green)}
+.badge-record .badge-sub{font-size:10px;color:var(--muted2);font-weight:400;display:block;margin-top:2px}
+
+/* ── RIGHT PANEL ── */
+.right-panel{
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  min-height:0;
+}
+.lb-header{
+  padding:16px 20px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-shrink:0;
+  border-bottom:1px solid var(--border);
+  background:rgba(8,15,30,.8);
+}
+.lb-title-group{display:flex;align-items:center;gap:10px}
+.lb-title{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.lb-tag{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 9px;border-radius:4px;background:rgba(168,85,247,.12);color:var(--purple);border:1px solid rgba(168,85,247,.25)}
+.lb-count{font-size:11px;color:var(--muted2);font-family:var(--mono)}
+.lb-count span{color:var(--cyan);font-weight:700}
+
+/* Column labels */
+.lb-cols{
+  display:grid;
+  grid-template-columns:46px 1fr 110px;
+  padding:7px 16px;
+  font-size:9px;
+  text-transform:uppercase;
+  letter-spacing:1.5px;
+  color:var(--muted);
+  font-weight:700;
+  flex-shrink:0;
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+
+/* Scroll viewport */
+.lb-viewport{
+  flex:1;
+  overflow:hidden;
+  position:relative;
+  min-height:0;
+}
+/* Fade masks at top/bottom */
+.lb-viewport::before,.lb-viewport::after{content:'';position:absolute;left:0;right:0;height:50px;z-index:5;pointer-events:none}
+.lb-viewport::before{top:0;background:linear-gradient(var(--bg),transparent)}
+.lb-viewport::after{bottom:0;background:linear-gradient(transparent,var(--bg))}
+.lb-scroll-inner{
+  /* will be set by JS based on content height */
+}
+.lb-row{
+  display:grid;
+  grid-template-columns:46px 1fr 110px;
+  align-items:center;
+  padding:0 16px;
+  height:42px;
+  border-bottom:1px solid rgba(255,255,255,.035);
+  transition:background .15s;
+  position:relative;
+}
+.lb-row.r1{background:linear-gradient(90deg,rgba(255,215,0,.1),transparent);border-left:3px solid var(--gold)}
+.lb-row.r2{background:linear-gradient(90deg,rgba(192,192,192,.07),transparent);border-left:3px solid #C0C0C0}
+.lb-row.r3{background:linear-gradient(90deg,rgba(205,127,50,.06),transparent);border-left:3px solid #CD7F32}
+.lb-row.top10{background:linear-gradient(90deg,rgba(59,130,246,.05),transparent)}
+.lb-rank{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--muted);text-align:center}
+.r1 .lb-rank{color:var(--gold);font-size:18px}
+.r2 .lb-rank{color:#C0C0C0;font-size:16px}
+.r3 .lb-rank{color:#CD7F32;font-size:15px}
+.top10 .lb-rank{color:var(--blue2)}
+.lb-name{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r1 .lb-name{font-size:15px;color:var(--gold);font-weight:700}
+.r2 .lb-name{color:#e8e8e8}
+.r3 .lb-name{color:#daa571}
+.lb-amt{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--muted2);text-align:right}
+.r1 .lb-amt{color:var(--gold);font-size:16px}
+.r2 .lb-amt{color:#C0C0C0}
+.r3 .lb-amt{color:#CD7F32}
+.top10 .lb-amt{color:var(--cyan)}
+
+/* ── CELEBRATION PARTICLES ── */
+.particle{
+  position:fixed;
+  pointer-events:none;
+  z-index:100;
+  font-size:22px;
+  animation:particle-fly 2.2s ease-out forwards;
+}
+@keyframes particle-fly{
+  0%{opacity:1;transform:translate(0,0) scale(1) rotate(0deg)}
+  100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3) rotate(var(--rot))}
+}
+
+/* Celebration flash overlay */
+.flash{position:fixed;inset:0;z-index:99;pointer-events:none;background:radial-gradient(ellipse at center,rgba(34,211,238,.12),transparent 70%);opacity:0;transition:opacity .2s}
+.flash.active{opacity:1}
+
+/* ── BOTTOM TICKER ── */
+.ticker-bar{
+  border-top:1px solid var(--border);
+  background:rgba(8,15,30,.9);
+  overflow:hidden;
+  flex-shrink:0;
+  padding:9px 0;
+  position:relative;
+}
+.ticker-bar::before,.ticker-bar::after{content:'';position:absolute;top:0;bottom:0;width:60px;z-index:5;pointer-events:none}
+.ticker-bar::before{left:0;background:linear-gradient(90deg,rgba(8,15,30,.9),transparent)}
+.ticker-bar::after{right:0;background:linear-gradient(-90deg,rgba(8,15,30,.9),transparent)}
+.ticker-inner{display:flex;gap:56px;white-space:nowrap;animation:ticker 30s linear infinite}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.ti{font-size:12px;color:var(--muted2);flex-shrink:0;display:flex;align-items:center;gap:6px}
+.ti strong{color:var(--cyan);font-family:var(--mono);font-weight:700}
+.ti .amt{color:var(--green);font-weight:700;font-family:var(--mono)}
+
+/* ── UTILITIES ── */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.fade-in{animation:fadeIn .4s ease forwards}
+</style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+<div class="noise"></div>
+<div class="scanline"></div>
+<div class="flash" id="flash"></div>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="h-brand">
+      <div class="h-logo">KGS</div>
+      <div>
+        <div class="h-title">Knox Grammar School</div>
+        <div class="h-sub">World's Greatest Shave 2026</div>
+      </div>
+    </div>
+    <div class="shave-badge">✂️ SHAVE DAY — TODAY</div>
+    <div class="h-right">
+      <div class="live-chip">
+        <div class="live-dot"></div>
+        <div class="live-label">Live</div>
+      </div>
+      <div>
+        <div class="update-time" id="updateTime">Loading…</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px;text-align:right">Auto-updates every 30s</div>
+      </div>
+      <div>
+        <div class="h-clock" id="liveClock">--:--:--</div>
+        <div class="h-date">Fri 13 Mar 2026</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main>
+
+    <!-- LEFT: COUNTER + STATS -->
+    <div class="left-panel">
+
+      <!-- Big counter -->
+      <div class="amount-block">
+        <div class="amt-eyebrow">Total Raised — Knox Grammar 2026</div>
+        <div class="amt-value" id="amtDisplay">$125,996</div>
+        <div class="amt-meta">
+          <span>🎯 New Goal: <strong>$140,000</strong></span>
+          <span>|</span>
+          <span>🏆 <strong>#1 School in NSW</strong></span>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-block">
+        <div class="prog-header">
+          <span class="prog-label">Progress to $140k Goal</span>
+          <span class="prog-pct" id="progPct">96.9%</span>
+        </div>
+        <div class="prog-track">
+          <div class="prog-fill" id="progFill" style="width:96.9%"></div>
+        </div>
+        <div class="prog-sub">
+          <span>$0</span>
+          <span id="progLeft">$4,004 to go</span>
+          <span>$140k 🎯</span>
+        </div>
+      </div>
+
+      <!-- Stats 2x2 -->
+      <div class="stats-grid">
+        <div class="stat-card sc-cyan">
+          <div class="stat-val" id="statParticipants">136</div>
+          <div class="stat-lbl">Knox Fundraisers</div>
+        </div>
+        <div class="stat-card sc-gold">
+          <div class="stat-val" id="statAvg">$926</div>
+          <div class="stat-lbl">Avg per Fundraiser</div>
+        </div>
+        <div class="stat-card sc-green">
+          <div class="stat-val" id="statRecord">+$2,084</div>
+          <div class="stat-lbl">Above School Record</div>
+        </div>
+        <div class="stat-card sc-purple">
+          <div class="stat-val" id="statGoalLeft">$4,004</div>
+          <div class="stat-lbl">Left to $140k Goal</div>
+        </div>
+      </div>
+
+      <!-- Badges -->
+      <div class="badges-row">
+        <div class="badge badge-nsw">
+          <span class="badge-icon">🏆</span>
+          <div>
+            <span class="badge-text">#1 SCHOOL IN NSW</span>
+            <span class="badge-sub">Beating Trinity by $19,757</span>
+          </div>
+        </div>
+        <div class="badge badge-record">
+          <span class="badge-icon">📈</span>
+          <div>
+            <span class="badge-text">RECORD BROKEN</span>
+            <span class="badge-sub">Old record: $123,912</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: LEADERBOARD -->
+    <div class="right-panel">
+      <div class="lb-header">
+        <div class="lb-title-group">
+          <div class="lb-title">Leaderboard</div>
+          <div class="lb-tag">Live</div>
+        </div>
+        <div class="lb-count"><span id="lbCount">136</span> fundraisers · auto-scrolling</div>
+      </div>
+      <div class="lb-cols">
+        <span style="text-align:center">Rank</span>
+        <span>Name</span>
+        <span style="text-align:right">Raised</span>
+      </div>
+      <div class="lb-viewport">
+        <div class="lb-scroll-inner" id="lbScrollInner">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- BOTTOM TICKER -->
+  <div class="ticker-bar">
+    <div class="ticker-inner" id="tickerInner">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── DATA ────────────────────────────────────────────────
+const API_URL = 'https://26-ebon.vercel.app/api/fundraiser';
+const REFRESH_MS = 30 * 1000; // 30 seconds
+
+let TOTAL  = 125996;
+let GOAL   = 140000;
+const RECORD = 123912;
+
+const MEMBERS_STATIC = [
+  {rank:1,name:'Christian Keane',amount:6268},
+  {rank:2,name:'Ishan P',amount:6132},
+  {rank:3,name:'Ethan K',amount:5744},
+  {rank:4,name:'Sam and Mr Leggo',amount:3631},
+  {rank:5,name:'Mohammad A',amount:3333},
+  {rank:6,name:'Aden S',amount:2836},
+  {rank:7,name:'Tom M',amount:2746},
+  {rank:8,name:'Dylan B',amount:2593},
+  {rank:9,name:'Benjamin L',amount:2575},
+  {rank:10,name:'Yulsig C',amount:2397},
+  {rank:11,name:'Caleb K',amount:2363},
+  {rank:12,name:'Austin D',amount:2333},
+  {rank:13,name:'Benjamin L (2)',amount:2117},
+  {rank:14,name:'Korben Pitman',amount:2057},
+  {rank:15,name:'Devan G',amount:2046},
+  {rank:16,name:'Mani Khanna-Boyle',amount:2041},
+  {rank:17,name:'Josh K',amount:2008},
+  {rank:18,name:'Harold L',amount:1953},
+  {rank:19,name:'Hugo G',amount:1893},
+  {rank:20,name:'Lachlan O',amount:1847},
+  {rank:21,name:'Hugh W',amount:1808},
+  {rank:22,name:'Jack C',amount:1752},
+  {rank:23,name:'Saxon G',amount:1686},
+  {rank:24,name:'Trevor T',amount:1602},
+  {rank:25,name:'Max Chung',amount:1600},
+  {rank:26,name:'Ethan G',amount:1535},
+  {rank:27,name:'Harry Olbourne',amount:1503},
+  {rank:28,name:'Angus W',amount:1414},
+  {rank:29,name:'Howard C',amount:1410},
+  {rank:30,name:'Ollie O',amount:1392},
+  {rank:31,name:'Ethan Nguyen',amount:1349},
+  {rank:32,name:'Ian and Max',amount:1332},
+  {rank:33,name:'Nathaniel L',amount:1329},
+  {rank:34,name:'Lewis Christie',amount:1290},
+  {rank:35,name:'Freddie A',amount:1280},
+  {rank:36,name:'Jaydon H',amount:1253},
+  {rank:37,name:'Harry D',amount:1244},
+  {rank:38,name:'Kellen M',amount:1237},
+  {rank:39,name:'William K',amount:1207},
+  {rank:40,name:'Ayaan W',amount:1118},
+  {rank:41,name:'Alex Chen',amount:1087},
+  {rank:42,name:'Leo S',amount:1027},
+  {rank:43,name:'Nick Z',amount:1023},
+  {rank:44,name:'William P',amount:1020},
+  {rank:45,name:'Shyan E',amount:937},
+  {rank:46,name:'Zaynne Z',amount:914},
+  {rank:47,name:'Max K',amount:910},
+  {rank:48,name:'Julian Z',amount:903},
+  {rank:49,name:'mitchell W',amount:897},
+  {rank:50,name:'Harry Burwood',amount:890},
+  {rank:51,name:'Tony W',amount:878},
+  {rank:52,name:'Ollie R',amount:874},
+  {rank:53,name:'Paul C',amount:865},
+  {rank:54,name:'Archie U',amount:837},
+  {rank:55,name:'Derek Z',amount:832},
+  {rank:56,name:'Noah Ellis',amount:800},
+  {rank:57,name:'Nathaniel H',amount:798},
+  {rank:58,name:'Seth D',amount:778},
+  {rank:59,name:'Drake Houghton',amount:772},
+  {rank:60,name:'Kabir D',amount:762},
+  {rank:61,name:'Alex B',amount:746},
+  {rank:62,name:'Alex Z',amount:741},
+  {rank:63,name:'Charlie R',amount:709},
+  {rank:64,name:'Alex X',amount:707},
+  {rank:65,name:'Jeremy Z',amount:683},
+  {rank:66,name:'Jackie Z',amount:674},
+  {rank:67,name:'Jimmy A',amount:666},
+  {rank:68,name:'Linden C',amount:649},
+  {rank:69,name:'Aidan S',amount:644},
+  {rank:70,name:'James P',amount:637},
+  {rank:71,name:'Carson N',amount:632},
+  {rank:72,name:'digby S',amount:624},
+  {rank:73,name:'Danny S',amount:618},
+  {rank:74,name:'Nicholas L',amount:606},
+  {rank:75,name:'benjamin W',amount:601},
+  {rank:76,name:'Jesse A',amount:596},
+  {rank:77,name:'Lucas M',amount:591},
+  {rank:78,name:'Joshua H',amount:585},
+  {rank:79,name:'Hunter O',amount:581},
+  {rank:80,name:'barney T',amount:579},
+  {rank:81,name:'Frederick L',amount:576},
+  {rank:82,name:'David L',amount:560},
+  {rank:83,name:'Miles Phijidvijan',amount:551},
+  {rank:84,name:'Andrew M',amount:522},
+  {rank:85,name:'Devlin McCARTHY',amount:520},
+  {rank:86,name:'Reyaan PRASAD',amount:515},
+  {rank:87,name:'Jacob Cartwright',amount:502},
+  {rank:88,name:'Jerry P',amount:480},
+  {rank:89,name:'Oliver L',amount:462},
+  {rank:90,name:'Aman Qadri',amount:452},
+  {rank:91,name:'Arthur B',amount:451},
+  {rank:92,name:'Boren C',amount:446},
+  {rank:93,name:'Owen M',amount:423},
+  {rank:94,name:'George G',amount:421},
+  {rank:95,name:'Damon Y',amount:399},
+  {rank:96,name:'Macarthur ARNOTT',amount:397},
+  {rank:97,name:'Danny L',amount:385},
+  {rank:98,name:'Zayn Cheema',amount:377},
+  {rank:99,name:'inni Jurd',amount:342},
+  {rank:100,name:'Ariyan R',amount:340},
+  {rank:101,name:'Rayan Q',amount:331},
+  {rank:102,name:'Tony L',amount:326},
+  {rank:103,name:'Thomas G',amount:320},
+  {rank:103,name:'Tian G',amount:320},
+  {rank:105,name:'Charlie B',amount:318},
+  {rank:106,name:'Remy L',amount:309},
+  {rank:107,name:'Nicholas W',amount:307},
+  {rank:108,name:'Arran R',amount:305},
+  {rank:109,name:'Charlie S',amount:276},
+  {rank:110,name:'Elliot S',amount:271},
+  {rank:111,name:'Elvin C',amount:270},
+  {rank:112,name:'Ben W',amount:260},
+  {rank:113,name:'Shafin Azad',amount:259},
+  {rank:114,name:'max A',amount:252},
+  {rank:115,name:'Yisa L',amount:250},
+  {rank:116,name:'Julian K',amount:223},
+  {rank:117,name:'Harry C',amount:221},
+  {rank:118,name:'Redson C',amount:216},
+  {rank:118,name:'Sean Lin',amount:216},
+  {rank:120,name:'Lucas D',amount:212},
+  {rank:120,name:'Xavier C',amount:212},
+  {rank:122,name:'Aarav K',amount:170},
+  {rank:123,name:'Darren Li',amount:159},
+  {rank:123,name:'Nathan Zhou',amount:159},
+  {rank:125,name:'Liam W',amount:155},
+  {rank:126,name:'Jude L',amount:145},
+  {rank:127,name:'Heliang L',amount:144},
+  {rank:128,name:'Ryan W',amount:131},
+  {rank:129,name:'Nathan X',amount:129},
+  {rank:130,name:'Hunter Y',amount:127},
+  {rank:131,name:'Hayden Y',amount:119},
+  {rank:132,name:'Josh K (2)',amount:115},
+  {rank:133,name:'Joshua Li',amount:112},
+  {rank:134,name:'Fox H',amount:111},
+  {rank:135,name:'Ollie R (2)',amount:102},
+  {rank:136,name:'Declan H',amount:101},
+];
+
+let MEMBERS_LIVE = MEMBERS_STATIC.slice();
+
+// ─── CLOCK ───────────────────────────────────────────────
+function updateClock(){
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('liveClock').textContent = `${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── COUNTER ANIMATION ───────────────────────────────────
+let displayedTotal = TOTAL;
+
+function animateCounter(from, to, duration=1800){
+  const start = performance.now();
+  const el = document.getElementById('amtDisplay');
+  function step(now){
+    const t = Math.min((now - start) / duration, 1);
+    const ease = t < .5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+    const val = Math.round(from + (to - from) * ease);
+    el.textContent = '$' + val.toLocaleString('en-AU');
+    if(t < 1) requestAnimationFrame(step);
+    else{
+      el.textContent = '$' + to.toLocaleString('en-AU');
+      displayedTotal = to;
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+// ─── UI UPDATE ───────────────────────────────────────────
+function updateUI(){
+  // Progress
+  const pct = Math.min(TOTAL / GOAL * 100, 100);
+  document.getElementById('progPct').textContent = pct.toFixed(1) + '%';
+  document.getElementById('progFill').style.width = pct + '%';
+  const left = Math.max(0, GOAL - TOTAL);
+  document.getElementById('progLeft').textContent = left > 0 ? '$' + left.toLocaleString('en-AU') + ' to go' : '🎉 GOAL REACHED!';
+
+  // Stats
+  const avg = MEMBERS_LIVE.length > 0 ? Math.round(TOTAL / MEMBERS_LIVE.length) : 0;
+  const aboveRecord = Math.max(0, TOTAL - RECORD);
+  document.getElementById('statParticipants').textContent = MEMBERS_LIVE.length;
+  document.getElementById('statAvg').textContent = '$' + avg.toLocaleString('en-AU');
+  document.getElementById('statRecord').textContent = '+$' + aboveRecord.toLocaleString('en-AU');
+  document.getElementById('statGoalLeft').textContent = '$' + left.toLocaleString('en-AU');
+  document.getElementById('lbCount').textContent = MEMBERS_LIVE.length;
+}
+
+// ─── LEADERBOARD ─────────────────────────────────────────
+function medalOrNum(rank){
+  if(rank===1) return '🥇';
+  if(rank===2) return '🥈';
+  if(rank===3) return '🥉';
+  return rank;
+}
+function rowClass(rank){
+  if(rank===1) return ' r1';
+  if(rank===2) return ' r2';
+  if(rank===3) return ' r3';
+  if(rank<=10) return ' top10';
+  return '';
+}
+
+function buildLeaderboard(){
+  const rows = MEMBERS_LIVE.map(m => `
+    <div class="lb-row${rowClass(m.rank)}">
+      <div class="lb-rank">${medalOrNum(m.rank)}</div>
+      <div class="lb-name">${m.name}</div>
+      <div class="lb-amt">$${Math.round(m.amount).toLocaleString('en-AU')}</div>
+    </div>
+  `).join('');
+
+  const inner = document.getElementById('lbScrollInner');
+  // Duplicate for seamless loop
+  inner.innerHTML = rows + rows;
+
+  // Set animation duration based on content: ~28px/s
+  const rowH = 42;
+  const totalH = MEMBERS_LIVE.length * rowH;
+  const duration = Math.round(totalH / 22); // 22px/s
+  inner.style.cssText = `animation: scroll-up-lb ${duration}s linear infinite`;
+}
+
+// Inject the keyframe once
+const styleEl = document.createElement('style');
+styleEl.textContent = `
+  @keyframes scroll-up-lb {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+  }
+`;
+document.head.appendChild(styleEl);
+
+// ─── TICKER ──────────────────────────────────────────────
+function buildTicker(){
+  const top = MEMBERS_LIVE.slice(0, 8);
+  const items = [
+    ...top.map(m => `🏅 <strong>${m.name}</strong> — <span class="amt">$${Math.round(m.amount).toLocaleString('en-AU')}</span>`),
+    `🏆 <strong>KNOX #1 IN NSW</strong> — Total: $${TOTAL.toLocaleString('en-AU')} 🎉`,
+    `✂️ <strong>SHAVE DAY IS TODAY</strong> — Friday 13 March 2026`,
+    `🎯 Only $${Math.max(0,GOAL-TOTAL).toLocaleString('en-AU')} left to hit $140,000`,
+    `💙 <strong>${MEMBERS_LIVE.length} Knox fundraisers</strong> — incredible effort`,
+    `📈 School record smashed — old record $123,912`,
+    `🔥 Knox Grammar — <strong>World's Greatest Shave 2026</strong>`,
+  ];
+  const doubled = [...items, ...items];
+  document.getElementById('tickerInner').innerHTML = doubled.map(i => `<span class="ti">${i}</span>`).join('');
+}
+
+// ─── CELEBRATION ─────────────────────────────────────────
+const EMOJIS = ['🎉','✨','💙','🏆','💰','🎊','⭐','🌟','💫','✂️','💚'];
+
+function celebrate(){
+  // Flash overlay
+  const flash = document.getElementById('flash');
+  flash.classList.add('active');
+  setTimeout(() => flash.classList.remove('active'), 600);
+
+  // Pop animation on counter
+  const el = document.getElementById('amtDisplay');
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+
+  // Spawn particles
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  for(let i = 0; i < 18; i++){
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+    const angle = (Math.random() * 360) * (Math.PI / 180);
+    const dist = 120 + Math.random() * 200;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist - 80;
+    const rot = (Math.random() - .5) * 720;
+    p.style.cssText = `left:${cx}px;top:${cy}px;--dx:${dx}px;--dy:${dy}px;--rot:${rot}deg;animation-delay:${Math.random()*0.3}s;font-size:${16+Math.random()*14}px`;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 2500);
+  }
+}
+
+// ─── LIVE FETCH ──────────────────────────────────────────
+async function fetchLiveData(){
+  const updateEl = document.getElementById('updateTime');
+  updateEl.innerHTML = 'Refreshing… <span>⟳</span>';
+
+  try {
+    const res = await fetch(API_URL, { cache: 'no-store' });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+
+    const prevTotal = TOTAL;
+    let liveLoaded = false;
+
+    if(data.raised && data.raised > 0){
+      TOTAL = data.raised;
+      liveLoaded = true;
+    }
+    if(data.goal && data.goal > 0) GOAL = data.goal;
+
+    if(data.members && data.members.length > 0){
+      const apiTotal = data.raised || TOTAL;
+      MEMBERS_LIVE = data.members.map((m,i) => ({
+        rank: i + 1,
+        name: m.name,
+        amount: m.raised,
+      }));
+      liveLoaded = true;
+    }
+
+    const now = new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+    if(liveLoaded){
+      // Animate counter if changed
+      if(TOTAL !== prevTotal){
+        celebrate();
+        animateCounter(prevTotal, TOTAL);
+      }
+      updateUI();
+      buildLeaderboard();
+      buildTicker();
+      updateEl.innerHTML = `Updated <span>${now}</span>`;
+    } else {
+      updateEl.innerHTML = `Saved data — <span>live pending</span>`;
+    }
+
+  } catch(err){
+    const now = new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    document.getElementById('updateTime').innerHTML = `Last: <span>${now}</span>`;
+    console.warn('Fetch failed:', err.message);
+  }
+}
+
+// ─── INIT ────────────────────────────────────────────────
+updateUI();
+buildLeaderboard();
+buildTicker();
+
+// Initial fetch
+fetchLiveData();
+
+// Auto-refresh every 30 seconds
+setInterval(fetchLiveData, REFRESH_MS);
+
+// Update the initial counter display
+document.getElementById('amtDisplay').textContent = '$' + TOTAL.toLocaleString('en-AU');
+</script>
+</body>
+</html>
